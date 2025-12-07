@@ -1,866 +1,589 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>The Legend of Dingus - AR Story</title>
-  <script src="https://cdn.jsdelivr.net/gh/aframevr/aframe@1c2407b26c61958baa93967b5412487cd94b290b/dist/aframe-master.min.js"></script>
-  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/aframe-particle-system-component@1.0.x/dist/aframe-particle-system-component.min.js"></script>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Pacifico&family=Quicksand:wght@400;700&display=swap');
+  <head>
+    <meta charset="utf-8" />
+    <title>WebAR Lab - AR Experience</title>
+    <script src="https://cdn.jsdelivr.net/gh/aframevr/aframe@1c2407b26c61958baa93967b5412487cd94b290b/dist/aframe-master.min.js"></script>
+    <script>
+      (function () {
+        if (
+          window.THREE &&
+          THREE.Matrix4 &&
+          !THREE.Matrix4.prototype.invert &&
+          THREE.Matrix4.prototype.getInverse
+        ) {
+          THREE.Matrix4.prototype.invert = function () {
+            const clone = this.clone();
+            return this.getInverse(clone);
+          };
+        }
+      })();
+    </script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
 
-    body {
-      margin: 0;
-      overflow: hidden;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    }
-
-    #ui-overlay {
-      position: fixed;
-      top: 20px;
-      left: 20px;
-      background: linear-gradient(135deg, rgba(255,182,193,0.95) 0%, rgba(255,218,185,0.95) 100%);
-      color: #333;
-      padding: 20px;
-      border-radius: 20px;
-      font-family: 'Quicksand', sans-serif;
-      z-index: 1000;
-      max-width: 320px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.3), inset 0 0 20px rgba(255,255,255,0.3);
-      border: 3px solid rgba(255,255,255,0.5);
-    }
-
-    #title {
-      font-family: 'Pacifico', cursive;
-      font-size: 22px;
-      margin: 0 0 15px 0;
-      text-align: center;
-      background: linear-gradient(45deg, #FF6B9D, #C06C84);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
-    }
-
-    .chapter-item {
-      margin: 8px 0;
-      padding: 10px;
-      border-radius: 12px;
-      background: rgba(255,255,255,0.4);
-      transition: all 0.3s;
-      display: flex;
-      align-items: center;
-      border: 2px solid transparent;
-    }
-
-    .chapter-item.completed {
-      background: rgba(144,238,144,0.4);
-      border-color: #90EE90;
-      box-shadow: 0 0 15px rgba(144,238,144,0.5);
-    }
-
-    .cat-status {
-      display: inline-block;
-      width: 24px;
-      height: 24px;
-      margin-right: 10px;
-      font-size: 20px;
-      filter: grayscale(100%);
-      opacity: 0.3;
-      transition: all 0.5s;
-    }
-
-    .cat-status.found {
-      filter: grayscale(0%);
-      opacity: 1;
-      animation: wiggle 2s infinite;
-    }
-
-    @keyframes wiggle {
-      0%, 100% { transform: rotate(-5deg) scale(1); }
-      25% { transform: rotate(5deg) scale(1.1); }
-      50% { transform: rotate(-5deg) scale(1); }
-      75% { transform: rotate(5deg) scale(1.1); }
-    }
-
-    #story-text {
-      margin-top: 15px;
-      font-size: 14px;
-      line-height: 1.7;
-      padding: 15px;
-      background: rgba(255,255,255,0.5);
-      border-radius: 12px;
-      border-left: 4px solid #FF6B9D;
-      min-height: 80px;
-      font-weight: 500;
-    }
-
-    .interaction-btn {
-      margin-top: 12px;
-      padding: 12px 24px;
-      background: linear-gradient(45deg, #FF6B9D, #C06C84);
-      border: none;
-      border-radius: 25px;
-      color: white;
-      cursor: pointer;
-      font-family: 'Quicksand', sans-serif;
-      font-weight: 700;
-      font-size: 14px;
-      transition: all 0.3s;
-      box-shadow: 0 4px 15px rgba(255,107,157,0.4);
-      display: none;
-      width: 100%;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    .interaction-btn:hover {
-      transform: translateY(-2px) scale(1.02);
-      box-shadow: 0 6px 20px rgba(255,107,157,0.6);
-    }
-
-    .interaction-btn:active {
-      transform: translateY(0) scale(0.98);
-    }
-
-    #progress-bar {
-      width: 100%;
-      height: 8px;
-      background: rgba(255,255,255,0.3);
-      border-radius: 4px;
-      margin-top: 15px;
-      overflow: hidden;
-      border: 1px solid rgba(255,255,255,0.4);
-    }
-
-    #progress-fill {
-      height: 100%;
-      width: 0%;
-      background: linear-gradient(90deg, #FF6B9D, #FFA07A);
-      transition: width 1s ease;
-      box-shadow: 0 0 10px rgba(255,107,157,0.8);
-    }
-
-    #completion-message {
-      margin-top: 15px;
-      padding: 15px;
-      background: linear-gradient(135deg, rgba(255,215,0,0.3), rgba(255,192,203,0.3));
-      border-radius: 12px;
-      text-align: center;
-      font-weight: 700;
-      display: none;
-      animation: fadeIn 1s;
-      border: 2px solid #FFD700;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .tooltip {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(255,107,157,0.9);
-      padding: 12px 24px;
-      border-radius: 25px;
-      font-family: 'Quicksand', sans-serif;
-      font-weight: 700;
-      font-size: 13px;
-      color: white;
-      display: none;
-      animation: bounce 2s infinite;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-    }
-
-    @keyframes bounce {
-      0%, 100% { transform: translateX(-50%) translateY(0); }
-      50% { transform: translateX(-50%) translateY(-10px); }
-    }
-
-    .paw-print {
-      font-size: 12px;
-      opacity: 0.6;
-      margin: 0 2px;
-    }
-
-    #frame-guide {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 500;
-      pointer-events: none;
-    }
-
-    #tracking-indicator {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 400px;
-      height: 400px;
-      border: 3px solid #FF6B9D;
-      border-radius: 20px;
-      background: radial-gradient(circle, rgba(255,107,157,0.1) 0%, rgba(255,107,157,0) 70%);
-      box-shadow: 0 0 30px rgba(255,107,157,0.5) inset, 0 0 40px rgba(255,107,157,0.3);
-      z-index: 499;
-      pointer-events: none;
-      animation: pulse-frame 2s infinite;
-    }
-
-    #tracking-indicator.tracking {
-      border-color: #90EE90;
-      box-shadow: 0 0 30px rgba(144,238,144,0.8) inset, 0 0 50px rgba(144,238,144,0.5);
-      animation: pulse-frame-found 0.6s ease-out;
-    }
-
-    @keyframes pulse-frame {
-      0%, 100% {
-        box-shadow: 0 0 30px rgba(255,107,157,0.5) inset, 0 0 40px rgba(255,107,157,0.3);
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        font-family: system-ui, sans-serif;
       }
-      50% {
-        box-shadow: 0 0 20px rgba(255,107,157,0.3) inset, 0 0 20px rgba(255,107,157,0.2);
+      #story-box {
+        position: fixed;
+        top: 80%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: linear-gradient(135deg, rgba(20, 20, 60, 0.95) 0%, rgba(40, 10, 60, 0.95) 100%);
+        border: 3px solid gold;
+        border-radius: 15px;
+        padding: 30px 40px;
+        max-width: 500px;
+        text-align: center;
+        z-index: 10;
+        box-shadow: 0 0 30px rgba(255, 215, 0, 0.5), inset 0 0 20px rgba(255, 215, 0, 0.1);
+        font-size: 24px;
+        font-weight: bold;
+        color: #FFD700;
+        text-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
+        display: none;
       }
-    }
-
-    @keyframes pulse-frame-found {
-      0% {
-        transform: translate(-50%, -50%) scale(0.8);
-        opacity: 0.5;
+      #overlay {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        background: rgba(0, 0, 0, 0.65);
+        color: white;
+        padding: 10px;
+        border-radius: 6px;
+        font-size: 14px;
+        z-index: 2;
+        max-width: 360px;
       }
-      50% {
-        transform: translate(-50%, -50%) scale(1.1);
+      #overlay p {
+        margin: 6px 0;
       }
-      100% {
-        transform: translate(-50%, -50%) scale(1);
-        opacity: 1;
+      button {
+        margin: 4px 6px 4px 0;
+        padding: 6px 10px;
+        border-radius: 4px;
+        border: none;
+        cursor: pointer;
+        background: #4cc3d9;
+        color: #000;
       }
-    }
+      #hint {
+        margin-top: 8px;
+        color: #ffd;
+        font-size: 13px;
+      }
+      .small {
+        font-size: 12px;
+        color: #ddd;
+      }
+      
+      #detection-status {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 15px 20px;
+        border-radius: 10px;
+        font-size: 14px;
+        z-index: 100;
+        min-width: 250px;
+        border: 2px solid #666;
+      }
+      
+      #detection-status.detected {
+        border-color: #00ff00;
+        background: rgba(0, 100, 0, 0.9);
+        box-shadow: 0 0 20px rgba(0, 255, 0, 0.6);
+      }
+      
+      .marker-status {
+        display: flex;
+        align-items: center;
+        margin: 5px 0;
+        font-weight: bold;
+      }
+      
+      .marker-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: 8px;
+        background: #666;
+        animation: none;
+      }
+      
+      .marker-indicator.active {
+        background: #00ff00;
+        animation: pulse 1s infinite;
+      }
+      
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+      }
+    </style>
+  </head>
 
-    #corner-guides {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 400px;
-      height: 400px;
-      z-index: 499;
-      pointer-events: none;
-    }
+<body style="margin : 0px; overflow: hidden;">
 
-    .corner {
-      position: absolute;
-      width: 50px;
-      height: 50px;
-      border: 4px solid #FF6B9D;
-      opacity: 0.7;
-    }
+    <div id="detection-status">
+      <div style="font-size: 16px; margin-bottom: 8px; font-weight: bold;">🎯 Markers</div>
+      <div class="marker-status">
+        <div class="marker-indicator" id="indicator-1"></div>
+        <span id="marker1-text">⚔️ Sword: Waiting</span>
+      </div>
+      <div class="marker-status">
+        <div class="marker-indicator" id="indicator-2"></div>
+        <span id="marker2-text">🗺️ Path: Waiting</span>
+      </div>
+    </div>
 
-    .corner.top-left {
-      top: -25px;
-      left: -25px;
-      border-right: none;
-      border-bottom: none;
-    }
+    <div id="overlay">
+      <p id="title" style="font-weight: bold; margin-top: 0;">Knight's Quest AR</p>
+      <p id="status">Status: Initializing…</p>
+      <p>1️⃣ Sword: <span id="firstName" class="small">—</span></p>
+      <p>2️⃣ Path: <span id="secondName" class="small">—</span></p>
+      <div style="margin-top: 8px;">
+        <button id="btn-reset">Reset</button>
+      </div>
+      <p id="story" class="small">Scan HIRO for sword, then pick a path.</p>
+      <p id="hint" class="small">⚔️ Castle 🏰 or 🌲 Forest</p>
+    </div>
 
-    .corner.top-right {
-      top: -25px;
-      right: -25px;
-      border-left: none;
-      border-bottom: none;
-    }
+    <!-- Story text box (HTML overlay) -->
+    <div id="story-box"></div>
 
-    .corner.bottom-left {
-      bottom: -25px;
-      left: -25px;
-      border-right: none;
-      border-top: none;
-    }
+    <!-- A-Frame scene -->
+    <a-scene
+      vr-mode-ui="enabled: false;"
+      renderer="logarithmicDepthBuffer: true; antialias: true; colorManagement: true"
+      embedded
+      arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
+    >
+      <!-- Assets: Preload models -->
+      <a-assets>
+        <a-asset-item id="sword-model" src="models/Sword.obj"></a-asset-item>
+        <a-asset-item id="tree-model" src="models/Tree.obj"></a-asset-item>
+        <a-asset-item id="kale-model" src="models/towers .obj"></a-asset-item>
+        <a-asset-item id="cup-model" src="models/1.obj"></a-asset-item>
+      </a-assets>
 
-    .corner.bottom-right {
-      bottom: -25px;
-      right: -25px;
-      border-left: none;
-      border-top: none;
-    }
+      <!-- Lighting -->
+      <a-entity light="type: ambient; intensity: 1.5; color: white"></a-entity>
+      <a-entity light="type: directional; intensity: 1; position: 1 2 1; color: white"></a-entity>
 
-    .corner.found {
-      border-color: #90EE90;
-    }
+      <!-- CAMERA CONTAINER - All objects positioned relative to camera -->
+      <a-entity id="mainCamera" camera>
+        <!-- Object 1: Sword (shown when marker1 scanned) -->
+        <a-entity
+          id="object1"
+          position="0 0 -5"
+          rotation="0 0 0"
+          scale="0.2 0.2 0.2"
+          visible="false"
+        >
+          <a-obj-model src="#sword-model" scale="0.5 0.5 0.5" material="color: #C0C0C0; metalness: 0.9; roughness: 0.1;"></a-obj-model>
+        </a-entity>
 
-    #scan-status {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      text-align: center;
-      z-index: 510;
-      pointer-events: none;
-      color: white;
-      font-family: 'Quicksand', sans-serif;
-      font-weight: 700;
-    }
+        <!-- Object 2: Castle (Tower) (shown when marker2 scanned) -->
+        <a-entity
+          id="object2"
+          position="0 0 -5"
+          rotation="0 0 0"
+          scale="0.2 0.2 0.2"
+          visible="false"
+        >
+          <a-obj-model src="#kale-model" scale="0.5 0.5 0.5" material="color: #808080; metalness: 0.3; roughness: 0.7;"></a-obj-model>
+        </a-entity>
 
-    .status-text {
-      font-size: 18px;
-      margin-top: 140px;
-      text-shadow: 2px 2px 8px rgba(0,0,0,0.8);
-      animation: fadeInOut 2s infinite;
-    }
+        <!-- Object 3: Forest (Tree) (shown when marker3 scanned) -->
+        <a-entity
+          id="object3"
+          position="0 0 -5"
+          rotation="0 0 0"
+          scale="0.2 0.2 0.2"
+          visible="false"
+        >
+          <a-obj-model src="#tree-model" scale="0.5 0.5 0.5"></a-obj-model>
+        </a-entity>
 
-    .status-text.found {
-      animation: none;
-      color: #90EE90;
-      font-size: 22px;
-    }
+        <!-- Object 4: Cup (shown when marker4 scanned) -->
+        <a-entity
+          id="object4"
+          position="0 0 -5"
+          rotation="0 0 0"
+          scale="0.15 0.15 0.15"
+          visible="false"
+        >
+          <a-obj-model src="#cup-model" scale="0.5 0.5 0.5" material="color: #FFD700; metalness: 0.8; roughness: 0.2;"></a-obj-model>
+        </a-entity>
 
-    @keyframes fadeInOut {
-      0%, 100% { opacity: 0.5; }
-      50% { opacity: 1; }
-    }
-  </style>
-</head>
-<body>
-<div id="ui-overlay">
-  <h3 id="title">🐱 The Legend of Dingus 🐱</h3>
-
-  <div class="chapter-item" id="chapter-1">
-    <span class="cat-status" id="status-1">🐱</span>
-    <span>Dingus the Kitten</span>
-  </div>
-  <div class="chapter-item" id="chapter-2">
-    <span class="cat-status" id="status-2">🐱</span>
-    <span>Dingus the Explorer</span>
-  </div>
-  <div class="chapter-item" id="chapter-3">
-    <span class="cat-status" id="status-3">🐱</span>
-    <span>Dingus the Legend</span>
-  </div>
-
-  <div id="progress-bar">
-    <div id="progress-fill"></div>
-  </div>
-
-  <div id="story-text">
-    Once upon a time, there was a magical cat named Dingus...
-    <br><br>
-    <strong>🐾 Scan the first marker to meet Dingus!</strong>
-  </div>
-
-  <button class="interaction-btn" id="interact-btn-1">🎾 Play with Dingus</button>
-  <button class="interaction-btn" id="interact-btn-2">🐟 Give Treats</button>
-  <button class="interaction-btn" id="interact-btn-3">👑 Crown the Legend</button>
-
-  <div id="completion-message">
-    🌟 Dingus has become a legendary cat! 🌟<br>
-    <span class="paw-print">🐾</span><span class="paw-print">🐾</span><span class="paw-print">🐾</span>
-  </div>
-</div>
-
-<div class="tooltip" id="scan-hint">📱 Point camera at marker 🐾</div>
-
-<div id="tracking-indicator"></div>
-<div id="corner-guides">
-  <div class="corner top-left"></div>
-  <div class="corner top-right"></div>
-  <div class="corner bottom-left"></div>
-  <div class="corner bottom-right"></div>
-</div>
-<div id="scan-status">
-  <div class="status-text" id="status-text-main">🔍 SCAN MARKER</div>
-</div>
-
-<a-scene
-        vr-mode-ui="enabled: false"
-        renderer="logarithmicDepthBuffer: true; alpha: true;"
-        embedded
-        arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;">
-
-  <!-- MARKER 1: Baby Dingus -->
-  <a-nft
-          type="nft"
-          url="markers/marker1"
-          smooth="true"
-          smoothCount="10"
-          smoothTolerance=".01"
-          smoothThreshold="5"
-          id="marker1">
-
-    <!-- Dingus 3D Model - Small Size (Kitten) -->
-    <a-entity id="dingus1" position="0 0 0">
-      <a-gltf-model
-              src="models/Dingus the cat.glb"
-              scale="0.3 0.3 0.3"
-              position="0 0 0"
-              rotation="0 0 0"
-              animation="property: rotation; to: 0 360 0; loop: true; dur: 10000; easing: linear"
-              animation__bounce="property: position; from: 0 0 0; to: 0 0.2 0; dir: alternate; loop: true; dur: 1500; easing: easeInOutSine">
-      </a-gltf-model>
-
-      <!-- Cute particles around baby Dingus -->
-      <a-entity
-              position="0 0.3 0"
-              particle-system="preset: default; color: #FFB6C1,#FFC0CB; particleCount: 50; maxAge: 2; size: 0.3; opacity: 0.6">
+        <!-- Text display -->
+        <a-text
+          id="story-text"
+          value="Welcome..."
+          position="0 1.5 -3"
+          rotation="0 0 0"
+          scale="2 2 2"
+          color="gold"
+          align="center"
+          visible="true"
+        ></a-text>
       </a-entity>
-    </a-entity>
 
-    <!-- Heart decoration -->
-    <a-text
-            value="💕"
-            position="-0.3 0.6 0"
-            scale="0.8 0.8 0.8"
-            align="center"
-            shader="flat"
-            animation="property: position; from: -0.3 0.6 0; to: -0.3 0.8 0; dir: alternate; loop: true; dur: 2000">
-    </a-text>
-    <a-text
-            value="💕"
-            position="0.3 0.6 0"
-            scale="0.8 0.8 0.8"
-            align="center"
-            shader="flat"
-            animation="property: position; from: 0.3 0.6 0; to: 0.3 0.8 0; dir: alternate; loop: true; dur: 2000; delay: 1000">
-    </a-text>
+      <!-- MARKER 1: HIRO (built-in) - Only used as trigger -->
+      <a-marker id="marker1" type="hiro" smooth="true" smoothCount="10" smoothTolerance=".01" smoothThreshold="5">
+      </a-marker>
 
-    <!-- Name plate -->
-    <a-text
-            value="Baby Dingus"
-            position="0 -0.3 0"
-            scale="1 1 1"
-            align="center"
-            color="#FF6B9D"
-            shader="flat">
-    </a-text>
-  </a-nft>
+      <!-- MARKER 2: pattern-kanji - Castle -->
+      <a-marker id="marker2" type="pattern" url="pattern-kanji.patt" smooth="true" smoothCount="10" smoothTolerance=".01" smoothThreshold="5">
+      </a-marker>
 
-  <!-- MARKER 2: Teen Dingus (Adventure Mode) -->
-  <a-nft
-          type="nft"
-          url="markers/marker2"
-          smooth="true"
-          smoothCount="10"
-          smoothTolerance=".01"
-          smoothThreshold="5"
-          id="marker2"
-          visible="false">
+      <!-- MARKER 3: pattern-letterA - Forest -->
+      <a-marker id="marker3" type="pattern" url="pattern-letterA.patt" smooth="true" smoothCount="10" smoothTolerance=".01" smoothThreshold="5">
+      </a-marker>
 
-    <!-- Dingus 3D Model - Medium Size (Growing) -->
-    <a-entity id="dingus2" position="0 0 0">
-      <a-gltf-model
-              src="models/Dingus the cat.glb"
-              scale="0.5 0.5 0.5"
-              position="0 0 0"
-              rotation="0 45 0"
-              animation="property: rotation; to: 0 405 0; loop: true; dur: 8000; easing: linear">
-      </a-gltf-model>
+      <!-- MARKER 4: pattern-letterB - Victory -->
+      <a-marker id="marker4" type="pattern" url="pattern-letterB.patt" smooth="true" smoothCount="10" smoothTolerance=".01" smoothThreshold="5">
+      </a-marker>
+    </a-scene>
 
-      <!-- Adventure sparkles -->
-      <a-entity
-              position="0 0.4 0"
-              particle-system="preset: default; color: #FFD700,#FFA500; particleCount: 80; maxAge: 2.5; size: 0.5; velocity: 0 1 0">
-      </a-entity>
-    </a-entity>
+    <script>
+      // State
+      const scanned = { marker1: false, marker2: false, marker3: false, marker4: false };
+      let activeObject = null;
+      let activePathMarker = null; // Track if player chose castle (marker2) or forest (marker3)
+      const unlockTree = { 
+        marker1: null, 
+        marker2: "marker1",
+        marker3: "marker1",
+        marker4: null  // Victory has custom logic based on path
+      };
 
-    <!-- Fish decorations (treats!) -->
-    <a-text
-            value="🐟"
-            position="-0.5 0.3 0"
-            scale="1 1 1"
-            align="center"
-            shader="flat"
-            animation="property: rotation; to: 0 0 360; loop: true; dur: 3000">
-    </a-text>
-    <a-text
-            value="🐟"
-            position="0.5 0.3 0"
-            scale="1 1 1"
-            align="center"
-            shader="flat"
-            animation="property: rotation; to: 0 0 -360; loop: true; dur: 3000">
-    </a-text>
+      // DOM refs
+      const marker1 = document.getElementById("marker1");
+      const marker2 = document.getElementById("marker2");
+      const marker3 = document.getElementById("marker3");
+      const marker4 = document.getElementById("marker4");
+      const object1 = document.getElementById("object1");
+      const object2 = document.getElementById("object2");
+      const object3 = document.getElementById("object3");
+      const object4 = document.getElementById("object4");
+      const storyText = document.getElementById("story-text");
 
-    <!-- Orbiting ball (toy) -->
-    <a-sphere
-            radius="0.08"
-            color="#FF6B9D"
-            position="0.4 0.2 0"
-            animation="property: object3D.position.x; from: 0.4; to: -0.4; dir: alternate; loop: true; dur: 2000">
-    </a-sphere>
+      const status = document.getElementById("status");
+      const btnReset = document.getElementById("btn-reset");
+      const descFirst = document.getElementById("firstName");
+      const descSecond = document.getElementById("secondName");
+      const storyElement = document.getElementById("story");
+      const detectionDiv = document.getElementById("detection-status");
 
-    <a-text
-            value="Adventurer Dingus"
-            position="0 -0.4 0"
-            scale="1.2 1.2 1.2"
-            align="center"
-            color="#FFA500"
-            shader="flat">
-    </a-text>
-  </a-nft>
+      const detectionUI = {
+        marker1: {
+          indicator: document.getElementById("indicator-1"),
+          text: document.getElementById("marker1-text"),
+        },
+        marker2: {
+          indicator: document.getElementById("indicator-2"),
+          text: document.getElementById("marker2-text"),
+        },
+      };
 
-  <!-- MARKER 3: Legendary Dingus (Final Form) -->
-  <a-nft
-          type="nft"
-          url="markers/marker3"
-          smooth="true"
-          smoothCount="10"
-          smoothTolerance=".01"
-          smoothThreshold="5"
-          id="marker3"
-          visible="false">
+      const artifactMeta = {
+        marker1: {
+          element: object1,
+          name: "Sword",
+          spin: { to: "0 360 0", dur: 9000 },
+          text: "The knight takes the sword!"
+        },
+        marker2: {
+          element: object2,
+          name: "Castle",
+          spin: { to: "0 -360 0", dur: 7500 },
+          text: "He enters the castle..."
+        },
+        marker3: {
+          element: object3,
+          name: "Forest",
+          spin: { to: "0 360 0", dur: 8000 },
+          text: "He enters the dark forest..."
+        },
+        marker4: {
+          element: object4,
+          name: "Cup",
+          spin: { to: "0 -360 0", dur: 6000 },
+          text: "Victory! The knight wins the cup!"
+        },
+      };
 
-    <!-- Dingus 3D Model - Large Size (Legendary!) -->
-    <a-entity id="dingus3" position="0 0 0">
-      <a-gltf-model
-              src="models/Dingus the cat.glb"
-              scale="0.8 0.8 0.8"
-              position="0 0 0"
-              rotation="0 0 0"
-              animation="property: rotation; to: 0 360 0; loop: true; dur: 12000; easing: linear"
-              animation__float="property: position; from: 0 0 0; to: 0 0.3 0; dir: alternate; loop: true; dur: 3000; easing: easeInOutQuad">
-      </a-gltf-model>
+      if (descFirst) descFirst.textContent = artifactMeta.marker1?.name || "Artifact 1";
+      if (descSecond) descSecond.textContent = artifactMeta.marker2?.name || "Artifact 2";
 
-      <!-- Epic particle effects -->
-      <a-entity
-              position="0 0.5 0"
-              particle-system="preset: default; color: #FFD700,#FF69B4,#87CEEB; particleCount: 150; maxAge: 3; size: 0.8; velocity: 0 2 0">
-      </a-entity>
-    </a-entity>
-
-    <!-- Crown above Dingus -->
-    <a-text
-            value="👑"
-            position="0 0.9 0"
-            scale="1.5 1.5 1.5"
-            align="center"
-            shader="flat"
-            animation="property: rotation; to: 0 360 0; loop: true; dur: 4000"
-            animation__float="property: position; from: 0 0.9 0; to: 0 1.1 0; dir: alternate; loop: true; dur: 2000">
-    </a-text>
-
-    <!-- Stars around legendary Dingus -->
-    <a-text value="⭐" position="-0.6 0.6 0" scale="1 1 1" shader="flat"
-            animation="property: rotation; to: 0 0 360; loop: true; dur: 3000"></a-text>
-    <a-text value="⭐" position="0.6 0.6 0" scale="1 1 1" shader="flat"
-            animation="property: rotation; to: 0 0 -360; loop: true; dur: 3000"></a-text>
-    <a-text value="⭐" position="0 0.8 -0.3" scale="1 1 1" shader="flat"
-            animation="property: rotation; to: 0 0 360; loop: true; dur: 3500"></a-text>
-
-    <!-- Glowing ring -->
-    <a-torus
-            position="0 0.1 0"
-            radius="0.8"
-            radius-tubular="0.03"
-            color="#FFD700"
-            material="opacity: 0.7; transparent: true; emissive: #FFD700; emissiveIntensity: 0.5"
-            animation="property: rotation; to: 0 360 0; loop: true; dur: 6000">
-    </a-torus>
-
-    <a-text
-            value="LEGENDARY DINGUS"
-            position="0 -0.5 0"
-            scale="1.3 1.3 1.3"
-            align="center"
-            color="#FFD700"
-            shader="flat"
-            animation="property: scale; from: 1.3 1.3 1.3; to: 1.5 1.5 1.5; dir: alternate; loop: true; dur: 1500">
-    </a-text>
-  </a-nft>
-
-  <a-entity camera></a-entity>
-</a-scene>
-
-<script>
-  // Dingus's Journey Story
-  const dingusStory = {
-    chapters: {
-      1: {
-        intro: "🐱 Meet Dingus! A tiny kitten with big dreams. Dingus loves to play, nap in sunbeams, and chase butterflies. Every adventure starts small...",
-        interaction: "💕 You played with baby Dingus! Look how happy! The little furball is purring with joy. Dingus remembers your kindness...",
-        completion: "✨ Dingus is growing stronger! The kitten dreams of grand adventures beyond the garden..."
-      },
-      2: {
-        intro: "🌟 Dingus has grown! Now an adventurous explorer, Dingus travels far and wide, making friends and discovering hidden treasures...",
-        interaction: "🐟 You gave Dingus delicious treats! *nom nom nom* Dingus does a happy dance! Energy +100! Ready for more adventures!",
-        completion: "🎯 Tales of Dingus spread across the land! Legends speak of one final transformation..."
-      },
-      3: {
-        intro: "👑 BEHOLD! Legendary Dingus appears! Majestic, powerful, and still adorably fluffy. The prophecy has been fulfilled!",
-        interaction: "⚡ You crowned Dingus as the Legendary Cat! Reality bends to Dingus's will! All cats everywhere feel the awakening! The era of Dingus has begun!",
-        completion: "🌈 The Legend of Dingus is complete! From tiny kitten to legendary hero. Your bond with Dingus is eternal! 🐾✨"
+      // Utility functions
+      function hideAllObjects() {
+        [object1, object2, object3, object4].forEach((obj) => {
+          if (obj) {
+            obj.setAttribute("visible", false);
+            obj.removeAttribute("animation__spin");
+          }
+        });
       }
-    },
-    unlocked: new Set(),
-    interactions: new Set()
-  };
 
-  let currentChapter = 0;
-  let dingusLevel = 0;
-  const storyText = document.getElementById('story-text');
-  const progressFill = document.getElementById('progress-fill');
-  const completionMsg = document.getElementById('completion-message');
-  const scanHint = document.getElementById('scan-hint');
-  const trackingIndicator = document.getElementById('tracking-indicator');
-  const cornerGuides = document.querySelectorAll('.corner');
-  const scanStatus = document.getElementById('status-text-main');
-
-  // Frame detection helper functions
-  let markerTracking = new Set();
-
-  function activateTracking() {
-    trackingIndicator.classList.add('tracking');
-    cornerGuides.forEach(corner => corner.classList.add('found'));
-    scanStatus.textContent = '✅ MARKER FOUND!';
-    scanStatus.classList.add('found');
-  }
-
-  function deactivateTracking() {
-    trackingIndicator.classList.remove('tracking');
-    cornerGuides.forEach(corner => corner.classList.remove('found'));
-    scanStatus.textContent = '🔍 SCAN MARKER';
-    scanStatus.classList.remove('found');
-  }
-
-  function updateMarkerTrackingStatus() {
-    if (markerTracking.size > 0) {
-      activateTracking();
-    } else {
-      deactivateTracking();
-    }
-  }
-
-  // Meow sound effects using Web Audio API
-  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-
-  function playMeow(type = 'happy') {
-    const frequencies = {
-      happy: [800, 1200, 900],
-      excited: [1000, 1400, 1100],
-      legendary: [1200, 1600, 1800, 2000]
-    };
-
-    const freqs = frequencies[type] || frequencies.happy;
-
-    freqs.forEach((freq, i) => {
-      setTimeout(() => {
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-
-        oscillator.frequency.value = freq;
-        oscillator.type = 'sine';
-
-        gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-
-        oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + 0.3);
-      }, i * 150);
-    });
-  }
-
-  function updateProgress() {
-    const progress = (dingusLevel / 3) * 100;
-    progressFill.style.width = progress + '%';
-  }
-
-  function showInteractionButton(chapter) {
-    document.querySelectorAll('.interaction-btn').forEach(btn => btn.style.display = 'none');
-    const btn = document.getElementById(`interact-btn-${chapter}`);
-    if (btn) btn.style.display = 'block';
-  }
-
-  // Marker handlers
-  const marker1 = document.getElementById('marker1');
-  const marker2 = document.getElementById('marker2');
-  const marker3 = document.getElementById('marker3');
-
-  // Debug: Verify markers are found
-  console.log('Marker 1:', marker1);
-  console.log('Marker 2:', marker2);
-  console.log('Marker 3:', marker3);
-
-  // Wait for scene to be ready
-  const scene = document.querySelector('a-scene');
-  scene.addEventListener('loaded', () => {
-    console.log('A-Frame scene loaded');
-  });
-
-  // MARKER 1: Baby Dingus
-  marker1.addEventListener('markerFound', () => {
-    console.log('🎯 Baby Dingus found!');
-    markerTracking.add(1);
-    updateMarkerTrackingStatus();
-    scanHint.style.display = 'none';
-
-    if (!dingusStory.unlocked.has(1)) {
-      playMeow('happy');
-
-      dingusStory.unlocked.add(1);
-      dingusLevel++;
-      currentChapter = 1;
-
-      document.getElementById('status-1').classList.add('found');
-      document.getElementById('chapter-1').classList.add('completed');
-
-      storyText.innerHTML = dingusStory.chapters[1].intro;
-      showInteractionButton(1);
-      updateProgress();
-
-      // Unlock next chapter
-      setTimeout(() => {
-        marker2.setAttribute('visible', 'true');
-        storyText.innerHTML += '<br><br>' + dingusStory.chapters[1].completion;
-      }, 3000);
-    }
-  });
-
-  marker1.addEventListener('markerLost', () => {
-    console.log('🎯 Baby Dingus lost!');
-    markerTracking.delete(1);
-    updateMarkerTrackingStatus();
-  });
-
-  // MARKER 2: Explorer Dingus
-  marker2.addEventListener('markerFound', () => {
-    console.log('🎯 Explorer Dingus found!');
-    markerTracking.add(2);
-    updateMarkerTrackingStatus();
-
-    if (dingusStory.unlocked.has(1)) {
-      if (!dingusStory.unlocked.has(2)) {
-        playMeow('excited');
-
-        dingusStory.unlocked.add(2);
-        dingusLevel++;
-        currentChapter = 2;
-
-        document.getElementById('status-2').classList.add('found');
-        document.getElementById('chapter-2').classList.add('completed');
-
-        storyText.innerHTML = dingusStory.chapters[2].intro;
-        showInteractionButton(2);
-        updateProgress();
-
-        setTimeout(() => {
-          marker3.setAttribute('visible', 'true');
-          storyText.innerHTML += '<br><br>' + dingusStory.chapters[2].completion;
-        }, 3000);
+      function ensureSpin(element, spinConfig = {}) {
+        if (!element) return;
+        const { to = "0 360 0", dur = 9000 } = spinConfig;
+        element.removeAttribute("animation__spin");
+        element.setAttribute(
+          "animation__spin",
+          `property: rotation; to: ${to}; loop: true; dur: ${dur}; easing: linear`
+        );
+        console.log(`🌀 Spin started: to=${to}, dur=${dur}`);
       }
-    } else {
-      playMeow('happy');
-      storyText.innerHTML = "🐾 <strong>Oops!</strong> You need to meet baby Dingus first! Every legend starts from the beginning... 🐱";
-    }
-  });
 
-  marker2.addEventListener('markerLost', () => {
-    console.log('🎯 Explorer Dingus lost!');
-    markerTracking.delete(2);
-    updateMarkerTrackingStatus();
-  });
+      function showObjectForMarker(markerId) {
+        const artifactInfo = artifactMeta[markerId];
+        if (!artifactInfo || !artifactInfo.element) {
+          console.error(`showObjectForMarker: artifact info missing for ${markerId}`);
+          return;
+        }
 
-  // MARKER 3: Legendary Dingus
-  marker3.addEventListener('markerFound', () => {
-    console.log('🎯 Legendary Dingus found!');
-    markerTracking.add(3);
-    updateMarkerTrackingStatus();
+        // Check prerequisites
+        const prerequisite = unlockTree[markerId];
+        if (prerequisite && !scanned[prerequisite]) {
+          const prerequisiteName = artifactMeta[prerequisite]?.name || prerequisite;
+          setStatus(
+            `${artifactInfo.name} waits for ${prerequisiteName} to be awakened first.`
+          );
+          setStory(`Scan ${prerequisiteName} first.`);
+          return;
+        }
 
-    if (dingusStory.unlocked.has(1) && dingusStory.unlocked.has(2)) {
-      if (!dingusStory.unlocked.has(3)) {
-        playMeow('legendary');
+        // Special check for victory cup (marker4): requires sword + path
+        if (markerId === "marker4") {
+          if (!scanned["marker1"]) {
+            setStatus("You must get the sword first!");
+            setStory("Get the sword first!");
+            return;
+          }
+          if (!activePathMarker || (!scanned["marker2"] && !scanned["marker3"])) {
+            setStatus("You must choose a path first (castle or forest)!");
+            setStory("Choose a path first!");
+            return;
+          }
+        }
 
-        dingusStory.unlocked.add(3);
-        dingusLevel++;
-        currentChapter = 3;
+        // Check castle/forest exclusivity (marker2 and marker3 are mutually exclusive)
+        if ((markerId === "marker2" || markerId === "marker3") && activePathMarker) {
+          if (activePathMarker !== markerId) {
+            const currentPath = artifactMeta[activePathMarker]?.name || activePathMarker;
+            const attemptedPath = artifactInfo.name;
+            setStatus(`You already chose the ${currentPath} path. Cannot take ${attemptedPath} now.`);
+            setStory(`You already entered the ${currentPath}!`);
+            return;
+          }
+        }
 
-        document.getElementById('status-3').classList.add('found');
-        document.getElementById('chapter-3').classList.add('completed');
+        hideAllObjects();
+        artifactInfo.element.setAttribute("visible", true);
+        console.log(`✅ Showing ${markerId}:`, artifactInfo.element);
+        
+        // Mark the path choice if it's castle or forest
+        if (markerId === "marker2" || markerId === "marker3") {
+          activePathMarker = markerId;
+        }
+        
+        // For victory (marker4), customize text based on which path was chosen (castle OR forest)
+        let storyText = artifactInfo.text;
+        if (markerId === "marker4") {
+          if (activePathMarker === "marker2") {
+            // Castle path chosen
+            storyText = "Victory! The knight defeated the monster in the castle!";
+          } else if (activePathMarker === "marker3") {
+            // Forest path chosen
+            storyText = "Victory! The knight defeated the monster in the forest!";
+          } else {
+            storyText = "Scan castle or forest first.";
+          }
+        }
+        
+        ensureSpin(artifactInfo.element, artifactInfo.spin);
+        activeObject = markerId;
+        scanned[markerId] = true;
 
-        storyText.innerHTML = dingusStory.chapters[3].intro;
-        showInteractionButton(3);
-        updateProgress();
+        setStatus("Displaying: " + artifactInfo.name);
+        setStory(storyText);
       }
-    } else {
-      const missing = [];
-      if (!dingusStory.unlocked.has(1)) missing.push('baby Dingus');
-      if (!dingusStory.unlocked.has(2)) missing.push('explorer Dingus');
-      storyText.innerHTML = `⚠️ <strong>Not yet!</strong><br>The legendary form can only appear after meeting ${missing.join(' and ')}! 🐾`;
-    }
-  });
 
-  marker3.addEventListener('markerLost', () => {
-    console.log('🎯 Legendary Dingus lost!');
-    markerTracking.delete(3);
-    updateMarkerTrackingStatus();
-  });
+      function setStatus(text) {
+        if (status) {
+          status.textContent = "Status: " + text;
+        }
+      }
 
-  // Interaction buttons
-  document.getElementById('interact-btn-1').addEventListener('click', () => {
-    if (dingusStory.unlocked.has(1) && !dingusStory.interactions.has(1)) {
-      dingusStory.interactions.add(1);
-      const dingus = document.getElementById('dingus1');
+      function setStory(text) {
+        if (storyElement) {
+          storyElement.textContent = text;
+        }
+        if (storyText) {
+          storyText.setAttribute("value", text);
+        }
+        // Show story box overlay
+        const storyBox = document.getElementById('story-box');
+        if (storyBox) {
+          storyBox.textContent = text;
+          storyBox.style.display = 'block';
+          
+          // Auto-hide after 5 seconds
+          clearTimeout(storyTimeout);
+          storyTimeout = setTimeout(() => {
+            storyBox.style.display = 'none';
+          }, 5000);
+        }
+      }
 
-      // Happy bounce
-      dingus.setAttribute('animation__happy',
-              'property: scale; to: 1.3 1.3 1.3; dur: 500; dir: alternate; loop: 3; easing: easeInOutBack');
+      let storyTimeout;
 
-      playMeow('happy');
-      storyText.innerHTML = dingusStory.chapters[1].interaction;
-    }
-  });
+      function updateDetectionIndicator(markerId, found) {
+        const ui = detectionUI[markerId];
+        if (!ui) return;
 
-  document.getElementById('interact-btn-2').addEventListener('click', () => {
-    if (dingusStory.unlocked.has(2) && !dingusStory.interactions.has(2)) {
-      dingusStory.interactions.add(2);
-      const dingus = document.getElementById('dingus2');
+        const labels = {
+          marker1: "⚔️ Sword",
+          marker2: "🏰 Castle / 🌲 Path"
+        };
+        const label = labels[markerId] || markerId;
 
-      // Excited spin
-      dingus.setAttribute('animation__excited',
-              'property: rotation; to: 0 720 0; dur: 1500; easing: easeInOutQuad');
+        if (found) {
+          ui.indicator?.classList.add("active");
+          if (ui.text) ui.text.textContent = `${label}: ✅ Found`;
+          console.log(`✅ ${label} FOUND`);
+        } else {
+          ui.indicator?.classList.remove("active");
+          if (ui.text) ui.text.textContent = `${label}: ❌ Lost`;
+          console.log(`❌ ${label} LOST`);
+        }
 
-      playMeow('excited');
-      playMeow('excited'); // Double meow!
-      storyText.innerHTML = dingusStory.chapters[2].interaction;
-    }
-  });
+        const anyActive = Object.values(detectionUI).some(
+          ({ indicator }) => indicator && indicator.classList.contains("active")
+        );
+        if (detectionDiv) {
+          detectionDiv.classList.toggle("detected", anyActive);
+        }
+      }
 
-  document.getElementById('interact-btn-3').addEventListener('click', () => {
-    if (dingusStory.unlocked.has(3) && !dingusStory.interactions.has(3)) {
-      dingusStory.interactions.add(3);
-      const dingus = document.getElementById('dingus3');
+      function resetIndicators() {
+        Object.entries(detectionUI).forEach(([markerId, ui]) => {
+          ui.indicator?.classList.remove("active");
+          const labels = {
+            marker1: "⚔️ Sword",
+            marker2: "🗺️ Path"
+          };
+          const label = labels[markerId] || markerId;
+          if (ui.text) {
+            ui.text.textContent = `${label}: Waiting`;
+          }
+        });
+        detectionDiv?.classList.remove("detected");
+      }
 
-      // Legendary transformation
-      dingus.setAttribute('animation__legendary',
-              'property: scale; to: 1.5 1.5 1.5; dur: 2000; easing: easeOutElastic');
-      dingus.setAttribute('animation__ascend',
-              'property: position; to: 0 0.8 0; dur: 3000; easing: easeOutQuad');
+      function clearActiveIfLost(markerId) {
+        if (activeObject === markerId) {
+          const artifactInfo = artifactMeta[markerId];
+          if (artifactInfo?.element) {
+            artifactInfo.element.setAttribute("visible", false);
+            artifactInfo.element.removeAttribute("animation__spin");
+          }
+          activeObject = null;
+          console.log(`🔒 Hidden ${markerId}`);
+          setStatus("Object removed from view. Scan another marker.");
+        }
+      }
 
-      playMeow('legendary');
-      storyText.innerHTML = dingusStory.chapters[3].interaction;
+      // Marker event handlers
+      if (marker1) {
+        marker1.addEventListener("markerFound", () => {
+          console.log("🎯 HIRO marker found");
+          updateDetectionIndicator("marker1", true);
+          showObjectForMarker("marker1");
+        });
+        marker1.addEventListener("markerLost", () => {
+          console.log("❌ HIRO marker lost");
+          updateDetectionIndicator("marker1", false);
+          clearActiveIfLost("marker1");
+        });
+      }
 
-      // Victory!
-      setTimeout(() => {
-        completionMsg.style.display = 'block';
-        storyText.innerHTML = dingusStory.chapters[3].completion;
+      if (marker2) {
+        marker2.addEventListener("markerFound", () => {
+          console.log("🎯 Pattern Kanji marker found");
+          updateDetectionIndicator("marker2", true);
+          showObjectForMarker("marker2");
+        });
+        marker2.addEventListener("markerLost", () => {
+          console.log("❌ Pattern Kanji marker lost");
+          updateDetectionIndicator("marker2", false);
+          clearActiveIfLost("marker2");
+        });
+      }
 
-        // Epic sound sequence
-        setTimeout(() => playMeow('legendary'), 500);
-      }, 3000);
-    }
-  });
+      if (marker3) {
+        marker3.addEventListener("markerFound", () => {
+          console.log("🎯 Pattern LetterA marker found");
+          showObjectForMarker("marker3");
+        });
+        marker3.addEventListener("markerLost", () => {
+          console.log("❌ Pattern LetterA marker lost");
+          clearActiveIfLost("marker3");
+        });
+      }
 
-  // Show hint
-  setTimeout(() => {
-    if (dingusLevel === 0) {
-      scanHint.style.display = 'block';
-    }
-  }, 3000);
-</script>
-</body>
+      if (marker4) {
+        marker4.addEventListener("markerFound", () => {
+          console.log("🎯 Pattern LetterB marker found");
+          showObjectForMarker("marker4");
+        });
+        marker4.addEventListener("markerLost", () => {
+          console.log("❌ Pattern LetterB marker lost");
+          clearActiveIfLost("marker4");
+        });
+      }
+
+      if (btnReset) {
+        btnReset.addEventListener("click", () => {
+          Object.keys(scanned).forEach((key) => {
+            scanned[key] = false;
+          });
+          activeObject = null;
+          activePathMarker = null;
+          hideAllObjects();
+          resetIndicators();
+          setStory("Scan the markers to reveal the artifacts.");
+          setStatus("Progress reset. Scan HIRO marker to begin.");
+        });
+      }
+
+      // Keyboard shortcuts for testing
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "1") {
+          showObjectForMarker("marker1");
+        } else if (e.key === "2") {
+          showObjectForMarker("marker2");
+        } else if (e.key === "3") {
+          showObjectForMarker("marker3");
+        } else if (e.key === "4") {
+          showObjectForMarker("marker4");
+        } else if (e.key === "r" && btnReset) {
+          btnReset.click();
+        }
+      });
+
+      setStory("Scan the markers to reveal the artifacts.");
+      setStatus("Waiting: Scan HIRO marker first, then Pattern Kanji.");
+      console.log("🎨 AR Lab initialized. Keys: 1=marker1, 2=marker2, 3=marker3, 4=marker4, r=reset");
+    </script>
+  </body>
 </html>

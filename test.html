@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>WebAR Test - Simple Shapes</title>
+    <script src="https://cdn.jsdelivr.net/gh/aframevr/aframe@1c2407b26c61958baa93967b5412487cd94b290b/dist/aframe-master.min.js"></script>
+    <script>
+      (function () {
+        if (window.THREE && THREE.Matrix4 && !THREE.Matrix4.prototype.invert && THREE.Matrix4.prototype.getInverse) {
+          THREE.Matrix4.prototype.invert = function () {
+            const clone = this.clone();
+            return this.getInverse(clone);
+          };
+        }
+      })();
+    </script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <style>
+      body { margin: 0; overflow: hidden; }
+      #status {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 15px;
+        border-radius: 5px;
+        font-family: monospace;
+        z-index: 100;
+        max-width: 300px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="status">
+      <div>🎯 Simple AR Test</div>
+      <div id="text">Press 1/2/3 to test</div>
+    </div>
+
+    <a-scene embedded arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;" vr-mode-ui="enabled: false;">
+      <a-assets></a-assets>
+
+      <!-- Lighting -->
+      <a-entity light="type: ambient; intensity: 1.0"></a-entity>
+      <a-entity light="type: directional; intensity: 0.8; position: 1 2 1"></a-entity>
+
+      <!-- MARKER 1: HIRO -->
+      <a-marker id="marker1" type="hiro" smooth="true" smoothCount="10">
+        <a-box id="model1" position="0 0 0" scale="0.5 0.5 0.5" rotation="0 0 0" color="#FF6B6B" visible="false"></a-box>
+      </a-marker>
+
+      <!-- MARKER 2: pattern-kanji -->
+      <a-marker id="marker2" type="pattern" url="pattern-kanji.patt" smooth="true" smoothCount="10">
+        <a-sphere id="model2" position="0 0 0" scale="0.5 0.5 0.5" color="#4ECDC4" visible="false"></a-sphere>
+      </a-marker>
+
+      <!-- MARKER 3: pattern-letterA -->
+      <a-marker id="marker3" type="pattern" url="pattern-letterA.patt" smooth="true" smoothCount="10">
+        <a-cylinder id="model3" position="0 0 0" scale="0.4 0.4 0.4" color="#FFE66D" visible="false"></a-cylinder>
+      </a-marker>
+
+      <!-- Camera -->
+      <a-entity camera></a-entity>
+    </a-scene>
+
+    <script>
+      const model1 = document.getElementById("model1");
+      const model2 = document.getElementById("model2");
+      const model3 = document.getElementById("model3");
+      const marker1 = document.getElementById("marker1");
+      const marker2 = document.getElementById("marker2");
+      const marker3 = document.getElementById("marker3");
+      const statusText = document.getElementById("text");
+
+      function showModel(num) {
+        [model1, model2, model3].forEach(m => m.setAttribute("visible", false));
+        const model = num === 1 ? model1 : num === 2 ? model2 : model3;
+        if (model) {
+          model.setAttribute("visible", true);
+          model.setAttribute("animation__spin", `property: rotation; to: 0 360 0; dur: 5000; loop: true; easing: linear`);
+          statusText.textContent = `✅ Model ${num} visible (spinning)`;
+          console.log(`Model ${num} shown and spinning`);
+        }
+      }
+
+      function hideAll() {
+        [model1, model2, model3].forEach(m => m.setAttribute("visible", false));
+      }
+
+      // Keyboard controls
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "1") showModel(1);
+        if (e.key === "2") showModel(2);
+        if (e.key === "3") showModel(3);
+        if (e.key === "0") { hideAll(); statusText.textContent = "All hidden"; }
+      });
+
+      // Marker events
+      if (marker1) {
+        marker1.addEventListener("markerFound", () => {
+          console.log("✅ HIRO found!");
+          statusText.textContent = "✅ HIRO marker detected!";
+          showModel(1);
+        });
+        marker1.addEventListener("markerLost", () => {
+          console.log("❌ HIRO lost!");
+          if (model1.getAttribute("visible") === "true") {
+            model1.setAttribute("visible", false);
+            statusText.textContent = "HIRO marker lost";
+          }
+        });
+      }
+
+      if (marker2) {
+        marker2.addEventListener("markerFound", () => {
+          console.log("✅ Kanji found!");
+          statusText.textContent = "✅ Kanji marker detected!";
+          showModel(2);
+        });
+        marker2.addEventListener("markerLost", () => {
+          console.log("❌ Kanji lost!");
+          if (model2.getAttribute("visible") === "true") {
+            model2.setAttribute("visible", false);
+            statusText.textContent = "Kanji marker lost";
+          }
+        });
+      }
+
+      if (marker3) {
+        marker3.addEventListener("markerFound", () => {
+          console.log("✅ LetterA found!");
+          statusText.textContent = "✅ LetterA marker detected!";
+          showModel(3);
+        });
+        marker3.addEventListener("markerLost", () => {
+          console.log("❌ LetterA lost!");
+          if (model3.getAttribute("visible") === "true") {
+            model3.setAttribute("visible", false);
+            statusText.textContent = "LetterA marker lost";
+          }
+        });
+      }
+
+      console.log("✅ Test page loaded. Press 1/2/3 to show models.");
+    </script>
+  </body>
+</html>
